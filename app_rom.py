@@ -419,6 +419,7 @@ if st.session_state.show_rom_settings:
         )
         st.session_state.rom_config['num_topics'] = num_topics_val
 
+        st.caption("Sum across all ingests (cloud cost driver)")
         if num_topics_val == num_ingests_val:
             st.caption("1 topic per ingest (default)")
         else:
