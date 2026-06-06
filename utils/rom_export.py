@@ -15,33 +15,36 @@ def format_in_thousands(value):
     return f"${value:,.0f}"
 
 def calculate_rom_costs(config):
-    # Calculate based on new feed_configs structure
+    # num_ingests = connector/pipeline count (DE engineering hours driver)
+    # num_topics  = total topics across all ingests (cloud cost driver)
     num_ingests = config.get('num_ingests', 1)
+    num_topics = config.get('num_topics', num_ingests)  # defaults to 1:1 if not set
     feed_configs = config.get('feed_configs', [{'inbound': 1, 'outbound': 1, 'partitions': 0.048}])
     records_per_day = config.get('records_per_day', 5000)
 
-    # Calculate total feeds and partitions from feed_configs
+    # Calculate total feeds and partitions from feed_configs (sized by num_topics)
     total_inbound_feeds = sum(f['inbound'] for f in feed_configs)
     total_outbound_feeds = sum(f['outbound'] for f in feed_configs)
-    total_feeds = num_ingests  # Number of separate ingests
+    total_feeds = num_ingests  # shown in output for context
     total_partitions = sum(f['partitions'] for f in feed_configs)
 
-    # Calculate engineering costs (scales with number of topics)
+    # Engineering costs scale with ingests (pipeline build work)
     inbound_cost = total_inbound_feeds * config['inbound_hours'] * config['de_hourly_rate']
     outbound_cost = total_outbound_feeds * config['outbound_hours'] * config['de_hourly_rate']
-    normalization_cost = config['normalization_hours'] * config['de_hourly_rate'] * total_feeds
+    normalization_cost = config['normalization_hours'] * config['de_hourly_rate'] * num_ingests
     workspace_setup = config['workspace_setup_cost']
 
     one_time_development = inbound_cost + outbound_cost + normalization_cost + workspace_setup
 
+    # USE HYBRID PRICING MODEL - Base cost per ingest + variable cost by partition usage
     # Get CKU configuration from config
     azure_ckus = config.get('azure_ckus', 14)
     azure_rate = config.get('azure_rate', 1925)
-    gcp_ckus = config.get('gcp_ckus', 34)
+    gcp_ckus = config.get('gcp_ckus', 28)
     gcp_rate = config.get('gcp_rate', 1585)
 
     # Get total resources
-    TOTAL_PARTITIONS = config.get('total_partitions', 20224)
+    TOTAL_PARTITIONS = config.get('total_partitions', 12034)
     TOTAL_STORAGE_GB = config.get('total_storage_gb', 30844.17)
 
     # Get flat costs
@@ -49,30 +52,20 @@ def calculate_rom_costs(config):
     network_annual = config.get('network_annual', 120000)
     governance_annual = config.get('governance_annual', 42840)
 
-    # Partition utilization drives variable costs — t-shirt size determines the feed's share
+    # Confluent cost: flat per-feed contract price ($976/month per topic)
+    confluent_monthly_per_feed = config.get('confluent_monthly_cost', 976)
+    confluent_cost = confluent_monthly_per_feed * 12 * num_topics
+
+    # GCP cost: flat per-feed contract price ($773/month per topic)
+    gcp_monthly_per_feed = config.get('gcp_per_feed_monthly_cost', 773)
+    gcp_cost = gcp_monthly_per_feed * 12 * num_topics
+
+    # Network cost: scales with actual partition share of the total network
     partition_utilization = total_partitions / TOTAL_PARTITIONS if TOTAL_PARTITIONS > 0 else 0
     partition_utilization = min(partition_utilization, 1.0)
-
-    # Base per-feed monthly costs (Medium baseline = 24 partitions)
-    confluent_monthly_per_feed = config.get('confluent_monthly_cost', 976)
-    gcp_monthly_per_feed = config.get('gcp_per_feed_monthly_cost', 773)
-    medium_partitions = 24  # Medium t-shirt baseline
-
-    # Size multiplier: scale costs relative to Medium (24 partitions per feed)
-    # Each feed's partition count is total_partitions / num_ingests
-    partitions_per_feed = total_partitions / num_ingests if num_ingests > 0 else medium_partitions
-    size_multiplier = partitions_per_feed / medium_partitions
-
-    # Confluent cost: base Medium rate scaled by t-shirt size
-    confluent_cost = confluent_monthly_per_feed * 12 * num_ingests * size_multiplier
-
-    # GCP cost: base Medium rate scaled by t-shirt size
-    gcp_cost = gcp_monthly_per_feed * 12 * num_ingests * size_multiplier
-
-    # Network cost: scales with partition share of total infrastructure
     network_cost = network_annual * partition_utilization
 
-    # Governance cost: scales with partition share
+    # Governance cost: scales with partition share (usage-based)
     governance_cost = governance_annual * partition_utilization
 
     first_year_cloud_cost = confluent_cost + gcp_cost + network_cost + governance_cost
@@ -107,6 +100,7 @@ def calculate_rom_costs(config):
         'initial_investment': initial_investment,
         'operating_variance': operating_variance,
         'total_feeds': total_feeds,
+        'num_topics': num_topics,
         'total_partitions': total_partitions,
         'total_inbound_feeds': total_inbound_feeds,
         'total_outbound_feeds': total_outbound_feeds,
