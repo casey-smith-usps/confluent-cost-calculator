@@ -82,6 +82,10 @@ st.markdown("""
         padding: 1rem;
         border-radius: 0.5rem;
         border-left: 4px solid #1E88E5;
+        color: #262730;
+    }
+    .metric-card h2, .metric-card h4 {
+        color: #262730;
     }
     .cost-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -100,14 +104,14 @@ st.markdown('<div class="sub-header">T-Shirt Sizing ROM (Rough Order of Magnitud
 # Sidebar for file upload and settings
 with st.sidebar:
     st.header("⚙️ Configuration")
-    
+
     # Data Source Selection
     data_source = st.radio(
         "Data Source",
         ["Databricks Table", "Upload CSV"],
         help="Choose to read from Databricks table or upload CSV"
     )
-    
+
     if data_source == "Databricks Table":
         table_name = st.text_input(
             "Table Name",
@@ -126,7 +130,7 @@ with st.sidebar:
         if uploaded_file is not None:
             st.session_state.parsed_data = parse_csv_file(uploaded_file)
             st.success("File uploaded successfully!")
-    
+
     # Load default data if no file uploaded
     if st.session_state.parsed_data is None:
         try:
@@ -134,9 +138,9 @@ with st.sidebar:
                 st.session_state.parsed_data = parse_csv_file(f)
         except:
             st.info("💡 Please load data from Databricks table or upload a CSV file.")
-    
+
     st.divider()
-    
+
     # Settings toggles
     col1, col2 = st.columns(2)
     with col1:
@@ -164,15 +168,15 @@ TOTAL_STORAGE_GB = parsed_data['total_storage_gb']
 # T-Shirt Size Settings panel
 if st.session_state.show_settings:
     st.header("👕 T-Shirt Size Configuration")
-    
+
     cols = st.columns(3)
     with cols[0]:
         if st.button("🔄 Reset to Defaults", use_container_width=True):
             st.session_state.tshirt_sizes = DEFAULT_TSHIRT_SIZES.copy()
             st.rerun()
-    
+
     st.divider()
-    
+
     size_cols = st.columns(5)
     for idx, (size_name, config) in enumerate(st.session_state.tshirt_sizes.items()):
         with size_cols[idx % 5]:
@@ -193,19 +197,19 @@ if st.session_state.show_settings:
                 'partitions': partitions,
                 'storage_gb': storage
             }
-    
+
     st.divider()
 
 # Cost Settings panel (hidden by default)
 if st.session_state.show_cost_settings:
     st.header("💰 CKU & Cost Configuration")
-    
+
     st.info("⚙️ Edit these settings to match your infrastructure costs. All values are editable.")
-    
+
     # CKU Configuration
     st.subheader("CKU Configuration")
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.markdown("**Azure**")
         st.session_state.cku_config['azure_ckus'] = st.number_input(
@@ -224,7 +228,7 @@ if st.session_state.show_cost_settings:
         )
         azure_annual = st.session_state.cku_config['azure_ckus'] * st.session_state.cku_config['azure_rate'] * 12
         st.metric("Azure Annual Cost", f"${azure_annual:,.0f}")
-    
+
     with col2:
         st.markdown("**GCP**")
         st.session_state.cku_config['gcp_ckus'] = st.number_input(
@@ -243,16 +247,16 @@ if st.session_state.show_cost_settings:
         )
         gcp_annual = st.session_state.cku_config['gcp_ckus'] * st.session_state.cku_config['gcp_rate'] * 12
         st.metric("GCP Annual Cost", f"${gcp_annual:,.0f}")
-    
+
     total_compute = azure_annual + gcp_annual
     st.success(f"**Total Compute Annual Cost: ${total_compute:,.0f}**")
-    
+
     st.divider()
-    
+
     # Flat Annual Costs
     st.subheader("Flat Annual Costs")
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         st.session_state.flat_costs['storage'] = st.number_input(
             "Storage (Annual $)",
@@ -262,7 +266,7 @@ if st.session_state.show_cost_settings:
             key="storage_input",
             help="Total annual storage cost (Azure + GCP)"
         )
-    
+
     with col2:
         st.session_state.flat_costs['network'] = st.number_input(
             "Network (Annual $)",
@@ -272,7 +276,7 @@ if st.session_state.show_cost_settings:
             key="network_input",
             help="Total annual network cost (Azure + GCP)"
         )
-    
+
     with col3:
         st.session_state.flat_costs['network_multiplier'] = st.number_input(
             "Network Multiplier",
@@ -284,7 +288,7 @@ if st.session_state.show_cost_settings:
             key="network_mult_input",
             help="Network cost multiplier (default 0.75)"
         )
-    
+
     with col4:
         st.session_state.flat_costs['governance'] = st.number_input(
             "Governance (Annual $)",
@@ -294,17 +298,17 @@ if st.session_state.show_cost_settings:
             key="governance_input",
             help="Total annual governance cost (Azure + GCP)"
         )
-    
+
     st.divider()
-    
+
     st.caption("💡 Note: Partitions are split 50/50 between inbound and outbound")
-    
+
     # Reset button
     if st.button("🔄 Reset All Costs to Defaults", use_container_width=True):
         st.session_state.cku_config = DEFAULT_CKU_CONFIG.copy()
         st.session_state.flat_costs = DEFAULT_FLAT_COSTS.copy()
         st.rerun()
-    
+
     st.divider()
 
 # Main content
@@ -318,12 +322,12 @@ with col1:
 
 with col2:
     st.markdown("### 💰 Cost Configuration")
-    
+
     # Calculate total CKU costs
     azure_annual = st.session_state.cku_config['azure_ckus'] * st.session_state.cku_config['azure_rate'] * 12
     gcp_annual = st.session_state.cku_config['gcp_ckus'] * st.session_state.cku_config['gcp_rate'] * 12
     total_cku_cost_annual = azure_annual + gcp_annual
-    
+
     st.metric(
         "Compute (CKU) Annual",
         f"${total_cku_cost_annual:,.0f}",
@@ -344,7 +348,7 @@ with col2:
         f"${st.session_state.flat_costs['governance']:,}",
         help="Total annual governance cost (Azure + GCP)"
     )
-    
+
     annual_increase_rate = st.number_input(
         "Annual Increase Rate (%)",
         value=3.0,
@@ -361,23 +365,23 @@ def calculate_costs(size_config, selected_size):
     azure_annual = st.session_state.cku_config['azure_ckus'] * st.session_state.cku_config['azure_rate'] * 12
     gcp_annual = st.session_state.cku_config['gcp_ckus'] * st.session_state.cku_config['gcp_rate'] * 12
     total_cku_cost_annual = azure_annual + gcp_annual
-    
+
     # Prorate costs based on resource utilization
     partition_ratio = size_config['partitions'] / TOTAL_PARTITIONS if TOTAL_PARTITIONS > 0 else 0
     storage_ratio = size_config['storage_gb'] / TOTAL_STORAGE_GB if TOTAL_STORAGE_GB > 0 else 0
-    
+
     # Base costs prorated by usage
     compute = partition_ratio * total_cku_cost_annual
     storage = storage_ratio * st.session_state.flat_costs['storage']
-    
+
     # Network cost is flat: Network Annual × Network Multiplier (not prorated)
     network = st.session_state.flat_costs['network'] * st.session_state.flat_costs['network_multiplier']
-    
+
     governance = storage_ratio * st.session_state.flat_costs['governance']
-    
+
     total_yearly = compute + storage + network + governance
     total_monthly = total_yearly / 12
-    
+
     return {
         'compute': compute,
         'storage': storage,
@@ -407,7 +411,7 @@ for idx, (size_name, config) in enumerate(st.session_state.tshirt_sizes.items())
             st.markdown(f"**🔹 {size_name}**")
         else:
             st.markdown(f"{size_name}")
-        
+
         # Show partition split (50/50 inbound/outbound)
         inbound_partitions = config['partitions'] // 2
         outbound_partitions = config['partitions'] - inbound_partitions
@@ -438,21 +442,21 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("### ⚙️ Size Configuration")
-    
+
     st.markdown(f"""
         <div class="metric-card">
             <h4>🖥️ Partitions Needed</h4>
             <h2>{size_config['partitions']}</h2>
         </div>
     """, unsafe_allow_html=True)
-    
+
     st.markdown(f"""
         <div class="metric-card" style="border-left-color: #4CAF50;">
             <h4>💾 Storage Needed</h4>
             <h2>{size_config['storage_gb']} GB</h2>
         </div>
     """, unsafe_allow_html=True)
-    
+
     st.info(f"""
     **📈 Utilization Percentages:**
     - Compute: {(size_config['partitions'] / TOTAL_PARTITIONS) * 100:.3f}%
@@ -461,41 +465,41 @@ with col1:
 
 with col2:
     st.markdown("### 💵 Cost Breakdown")
-    
+
     # Calculate total CKU cost for display
     azure_annual = st.session_state.cku_config['azure_ckus'] * st.session_state.cku_config['azure_rate'] * 12
     gcp_annual = st.session_state.cku_config['gcp_ckus'] * st.session_state.cku_config['gcp_rate'] * 12
     total_cku_annual = azure_annual + gcp_annual
-    
+
     partition_ratio = size_config['partitions'] / TOTAL_PARTITIONS if TOTAL_PARTITIONS > 0 else 0
     storage_ratio = size_config['storage_gb'] / TOTAL_STORAGE_GB if TOTAL_STORAGE_GB > 0 else 0
-    
+
     st.markdown(f"""
         **🖥️ Compute (CKU) Cost:** ${costs['compute']:,.0f}
-        
+
         _{partition_ratio:.4f} × ${total_cku_annual:,.0f}_
-        
+
         _({st.session_state.cku_config['azure_ckus']} Azure CKUs + {st.session_state.cku_config['gcp_ckus']} GCP CKUs)_
     """)
-    
+
     st.markdown(f"""
         **💾 Storage Cost:** ${costs['storage']:,.0f}
-        
+
         _{storage_ratio:.4f} × ${st.session_state.flat_costs['storage']:,.0f}_
     """)
-    
+
     st.markdown(f"""
         **🌐 Network Cost:** ${costs['network']:,.0f}
-        
+
         _{st.session_state.flat_costs['network_multiplier']} × ${st.session_state.flat_costs['network']:,.0f}_
     """)
-    
+
     st.markdown(f"""
         **🔒 Governance Cost:** ${costs['governance']:,.0f}
-        
+
         _{storage_ratio:.4f} × ${st.session_state.flat_costs['governance']:,.0f}_
     """)
-    
+
     st.markdown(f"""
         ---
         ### **Total Yearly Cost: ${costs['total_yearly']:,.0f}**
@@ -515,7 +519,7 @@ with col2:
             costs=costs,
             annual_increase_rate=annual_increase_rate / 100
         )
-        
+
         filename = f"confluent-cost-projection-{st.session_state.selected_env}-{datetime.now().strftime('%Y-%m-%d')}.csv"
         st.download_button(
             label="💾 Download CSV",
@@ -531,35 +535,35 @@ with st.expander("📐 Formula Reference"):
     #### Compute (CKU) Cost Formula:
     ```
     (Partitions Needed / Total Partitions) × Total CKU Annual Cost
-    
+
     Where: Total CKU Annual Cost = (Azure CKUs × Azure Rate × 12) + (GCP CKUs × GCP Rate × 12)
-    
-    Current: ({st.session_state.cku_config['azure_ckus']} × ${st.session_state.cku_config['azure_rate']} × 12) + 
-             ({st.session_state.cku_config['gcp_ckus']} × ${st.session_state.cku_config['gcp_rate']} × 12) = 
+
+    Current: ({st.session_state.cku_config['azure_ckus']} × ${st.session_state.cku_config['azure_rate']} × 12) +
+             ({st.session_state.cku_config['gcp_ckus']} × ${st.session_state.cku_config['gcp_rate']} × 12) =
              ${(st.session_state.cku_config['azure_ckus'] * st.session_state.cku_config['azure_rate'] * 12 + st.session_state.cku_config['gcp_ckus'] * st.session_state.cku_config['gcp_rate'] * 12):,.0f}
     ```
-    
+
     #### Storage Cost Formula:
     ```
     (Storage Needed / Total Storage) × Total Annual Storage Cost
-    
+
     Current: ${st.session_state.flat_costs['storage']:,}
     ```
-    
+
     #### Network Cost Formula:
     ```
     Network Multiplier × Total Annual Network Cost (flat, not prorated)
-    
+
     Current: {st.session_state.flat_costs['network_multiplier']} × ${st.session_state.flat_costs['network']:,} = ${st.session_state.flat_costs['network'] * st.session_state.flat_costs['network_multiplier']:,.0f}
     ```
-    
+
     #### Governance Cost Formula:
     ```
     (Storage Needed / Total Storage) × Total Annual Governance Cost
-    
+
     Current: ${st.session_state.flat_costs['governance']:,}
     ```
-    
+
     **Notes:**
     - Partitions are split 50/50 between inbound and outbound
     - Network cost is flat (not prorated by usage)
