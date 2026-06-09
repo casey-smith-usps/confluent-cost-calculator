@@ -63,7 +63,7 @@ DEFAULT_ROM_CONFIG = {
     'workspace_setup_cost': 8000,
     'confluent_monthly_cost': 976,
     'gcp_per_feed_monthly_cost': 773,
-    'escalation_rate': 0.034,
+    'escalation_rate': 0.038,
     'start_year': datetime.now().year,
     'records_per_day': 5000,  # Daily volume
     'num_ingests': 1,  # Number of separate ingest connectors/pipelines
@@ -935,7 +935,7 @@ with rom_col1:
             <h2>${rom_results['breakdown']['one_time_development']:,.0f}</h2>
             <hr style="border-color: #ddd; margin: 0.5rem 0;">
             <p style="font-size: 0.85rem; margin: 0;">
-                {rom_results['total_inbound_feeds']} inbound + {rom_results['total_outbound_feeds']} outbound topics
+                {rom_results['display_inbound_topics']} inbound + {rom_results['display_outbound_topics']} outbound topics
             </p>
         </div>
     """, unsafe_allow_html=True)

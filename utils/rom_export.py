@@ -28,6 +28,9 @@ def calculate_rom_costs(config):
     total_inbound_feeds = inbound_per_ingest * num_ingests
     total_outbound_feeds = outbound_per_ingest * num_ingests
     total_feeds = num_ingests  # shown in output for context
+    # Topic counts for display (one inbound + one outbound per topic)
+    display_inbound_topics = num_topics
+    display_outbound_topics = num_topics
 
     # Partitions scale with num_topics (cloud cost driver)
     partitions_per_topic = feed_configs[0]['partitions'] if feed_configs else 0.048
@@ -109,6 +112,8 @@ def calculate_rom_costs(config):
         'total_partitions': total_partitions,
         'total_inbound_feeds': total_inbound_feeds,
         'total_outbound_feeds': total_outbound_feeds,
+        'display_inbound_topics': display_inbound_topics,
+        'display_outbound_topics': display_outbound_topics,
         'feed_configs': feed_configs,
         'records_per_day': records_per_day,
         'partition_utilization_pct': partition_utilization * 100,
