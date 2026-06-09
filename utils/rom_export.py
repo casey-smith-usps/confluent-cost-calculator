@@ -22,11 +22,16 @@ def calculate_rom_costs(config):
     feed_configs = config.get('feed_configs', [{'inbound': 1, 'outbound': 1, 'partitions': 0.048}])
     records_per_day = config.get('records_per_day', 5000)
 
-    # Calculate total feeds and partitions from feed_configs (sized by num_topics)
-    total_inbound_feeds = sum(f['inbound'] for f in feed_configs)
-    total_outbound_feeds = sum(f['outbound'] for f in feed_configs)
+    # Engineering costs scale with ingests — use inbound/outbound_feeds * num_ingests
+    inbound_per_ingest = config.get('inbound_feeds', 1)
+    outbound_per_ingest = config.get('outbound_feeds', 1)
+    total_inbound_feeds = inbound_per_ingest * num_ingests
+    total_outbound_feeds = outbound_per_ingest * num_ingests
     total_feeds = num_ingests  # shown in output for context
-    total_partitions = sum(f['partitions'] for f in feed_configs)
+
+    # Partitions scale with num_topics (cloud cost driver)
+    partitions_per_topic = feed_configs[0]['partitions'] if feed_configs else 0.048
+    total_partitions = partitions_per_topic * num_topics
 
     # Engineering costs scale with ingests (pipeline build work)
     inbound_cost = total_inbound_feeds * config['inbound_hours'] * config['de_hourly_rate']
@@ -303,6 +308,8 @@ def generate_rom_export_excel_de_tslc(config):
     row += 1
 
     ws.cell(row, 1, f"Number of Ingests: {results['total_feeds']}").font = normal_font
+    row += 1
+    ws.cell(row, 1, f"Total Number of Topics: {results['num_topics']}").font = normal_font
     row += 1
     ws.cell(row, 1, f"Total Inbound Topics: {results['total_inbound_feeds']}").font = normal_font
     row += 1
@@ -582,6 +589,8 @@ def generate_rom_export_excel_de_only(config):
 
     ws.cell(row, 1, f"Number of Ingests: {results['total_feeds']}").font = normal_font
     row += 1
+    ws.cell(row, 1, f"Total Number of Topics: {results['num_topics']}").font = normal_font
+    row += 1
     ws.cell(row, 1, f"Total Inbound Topics: {results['total_inbound_feeds']}").font = normal_font
     row += 1
     ws.cell(row, 1, f"Total Outbound Topics: {results['total_outbound_feeds']}").font = normal_font
@@ -692,6 +701,8 @@ def generate_rom_export_excel_cloud_only(config):
     row += 1
 
     ws.cell(row, 1, f"Number of Ingests: {results['total_feeds']}").font = normal_font
+    row += 1
+    ws.cell(row, 1, f"Total Number of Topics: {results['num_topics']}").font = normal_font
     row += 1
     ws.cell(row, 1, f"Total Partitions: {results['total_partitions']:.0f}").font = normal_font
     row += 1
@@ -884,6 +895,8 @@ def generate_rom_export_excel(config, logo_path=None):
     row += 1
 
     ws.cell(row, 1, f"Number of Ingests: {results['total_feeds']}").font = normal_font
+    row += 1
+    ws.cell(row, 1, f"Total Number of Topics: {results['num_topics']}").font = normal_font
     row += 1
     ws.cell(row, 1, f"Total Inbound Topics: {results['total_inbound_feeds']}").font = normal_font
     row += 1

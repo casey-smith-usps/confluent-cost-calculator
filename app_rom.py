@@ -614,28 +614,23 @@ def calculate_costs(size_config, selected_size, num_topics=1, records_per_day=50
     storage_ratio = size_config['storage_gb'] / TOTAL_STORAGE_GB if TOTAL_STORAGE_GB > 0 else 0
 
     # HYBRID MODEL: Base cost per topic + Variable cost by usage
-    base_cost_per_topic = total_cku_cost_annual * 0.30 / 100  # Assume 100 typical topics
-    variable_cost = partition_ratio * total_cku_cost_annual * 0.70
-    compute = (base_cost_per_topic * num_topics) + (variable_cost * num_topics)
+    # total_topics is the actual number of topics loaded from CSV (the capacity denominator)
+    total_topics = len(parsed_data['topics']) if parsed_data and 'topics' in parsed_data else 100
+    topic_share = num_topics / total_topics if total_topics > 0 else 0
+
+    compute = (total_cku_cost_annual * 0.30 * topic_share) + (partition_ratio * total_cku_cost_annual * 0.70 * num_topics)
 
     # Storage: 40% base per topic + 60% variable by storage ratio
-    base_storage_per_topic = st.session_state.flat_costs['storage'] * 0.40 / 100
-    variable_storage = storage_ratio * st.session_state.flat_costs['storage'] * 0.60
-    storage = (base_storage_per_topic * num_topics) + (variable_storage * num_topics)
+    storage = (st.session_state.flat_costs['storage'] * 0.40 * topic_share) + (storage_ratio * st.session_state.flat_costs['storage'] * 0.60 * num_topics)
 
     # Network cost scales with partition usage (not flat)
-    # Calculate total partitions across all topics
     total_partitions = size_config['partitions'] * num_topics
-    # Use actual total partitions as reference capacity
     partition_utilization = total_partitions / TOTAL_PARTITIONS if TOTAL_PARTITIONS > 0 else 0
-    # Cap at 100% utilization (treat as flat cost once capacity is reached)
     partition_utilization = min(partition_utilization, 1.0)
     network = st.session_state.flat_costs['network'] * partition_utilization
 
     # Governance: 40% base per topic + 60% variable by storage ratio
-    base_governance_per_topic = st.session_state.flat_costs.get('governance', 42840) * 0.40 / 100
-    variable_governance = storage_ratio * st.session_state.flat_costs.get('governance', 42840) * 0.60
-    governance = (base_governance_per_topic * num_topics) + (variable_governance * num_topics)
+    governance = (st.session_state.flat_costs.get('governance', 42840) * 0.40 * topic_share) + (storage_ratio * st.session_state.flat_costs.get('governance', 42840) * 0.60 * num_topics)
 
     # Scale storage based on data volume
     records_per_year = records_per_day * 365
