@@ -812,16 +812,41 @@ if st.session_state.show_technical_model:
 # Calculate cost now that size_config is available
 costs = calculate_costs(size_config, selected_size, num_topics, records_per_day)
 
+# Calculate ROM costs here so Cost Breakdown, top card, and ROM Summary all use identical numbers
+from utils.rom_export import calculate_rom_costs
+
+preview_rom_config = st.session_state.rom_config.copy()
+preview_rom_config['feed_configs'] = [
+    {
+        'inbound': st.session_state.rom_config.get('inbound_feeds', 1),
+        'outbound': st.session_state.rom_config.get('outbound_feeds', 1),
+        'partitions': size_config['partitions']
+    }
+    for _ in range(st.session_state.rom_config.get('num_topics', num_ingests))
+]
+preview_rom_config['azure_ckus'] = st.session_state.cku_config['azure_ckus']
+preview_rom_config['azure_rate'] = st.session_state.cku_config['azure_rate']
+preview_rom_config['gcp_ckus'] = st.session_state.cku_config['gcp_ckus']
+preview_rom_config['gcp_rate'] = st.session_state.cku_config['gcp_rate']
+preview_rom_config['total_partitions'] = TOTAL_PARTITIONS
+preview_rom_config['total_storage_gb'] = TOTAL_STORAGE_GB
+preview_rom_config['storage_annual'] = st.session_state.flat_costs.get('storage', 180000)
+preview_rom_config['network_annual'] = st.session_state.flat_costs.get('network', 120000)
+preview_rom_config['governance_annual'] = st.session_state.flat_costs.get('governance', 42840)
+
+rom_results = calculate_rom_costs(preview_rom_config)
+
 # Display total cost in col3 (delayed until costs are calculated)
 with col3:
     st.markdown("### 📊 Estimated Total Cost")
+    first_year_monthly = rom_results['breakdown']['first_year_cloud_cost'] / 12
     st.markdown(f"""
         <div class="cost-card">
             <h4 style="margin:0; color:white;">Monthly</h4>
-            <h2 style="margin:0.5rem 0; color:white;">${costs['total_monthly']:,.0f}</h2>
+            <h2 style="margin:0.5rem 0; color:white;">${first_year_monthly:,.0f}</h2>
             <hr style="border-color: rgba(255,255,255,0.3);">
             <h4 style="margin:0; color:white;">Yearly</h4>
-            <h3 style="margin:0.5rem 0; color:white;">${costs['total_yearly']:,.0f}</h3>
+            <h3 style="margin:0.5rem 0; color:white;">${rom_results['breakdown']['first_year_cloud_cost']:,.0f}</h3>
         </div>
     """, unsafe_allow_html=True)
 
@@ -856,75 +881,38 @@ with col1:
 with col2:
     st.markdown("### 💵 Cost Breakdown")
 
-    # Calculate total CKU cost for display
-    azure_annual = st.session_state.cku_config['azure_ckus'] * st.session_state.cku_config['azure_rate'] * 12
-    gcp_annual = st.session_state.cku_config['gcp_ckus'] * st.session_state.cku_config['gcp_rate'] * 12
-    total_cku_annual = azure_annual + gcp_annual
-
-    partition_ratio = size_config['partitions'] / TOTAL_PARTITIONS if TOTAL_PARTITIONS > 0 else 0
-    storage_ratio = size_config['storage_gb'] / TOTAL_STORAGE_GB if TOTAL_STORAGE_GB > 0 else 0
-
     st.markdown(f"""
-        **🖥️ Compute (CKU) Cost:** ${costs['compute']:,.0f}
+        **🖥️ Compute (CKU) Cost:** ${rom_results['breakdown']['confluent_cost']:,.0f}
 
-        _{partition_ratio:.4f} × ${total_cku_annual:,.0f} × {num_topics} topics_
-
-        _({st.session_state.cku_config['azure_ckus']} Azure CKUs + {st.session_state.cku_config['gcp_ckus']} GCP CKUs)_
+        _{st.session_state.cku_config['azure_ckus']} Azure CKUs × ${st.session_state.cku_config['azure_rate']:,}/mo + {st.session_state.cku_config['gcp_ckus']} GCP CKUs × ${st.session_state.cku_config['gcp_rate']:,}/mo × {num_topics} topics_
     """)
 
     st.markdown(f"""
-        **💾 Storage Cost:** ${costs['storage']:,.0f}
+        **💾 Storage Cost:** ${rom_results['breakdown']['gcp_cost']:,.0f}
 
-        _{storage_ratio:.4f} × ${st.session_state.flat_costs['storage']:,.0f} × {num_topics} topics × volume_
+        _{num_topics} topics × {size_config['storage_gb']:.0f} GB × annual rate_
     """)
 
     st.markdown(f"""
-        **🌐 Network Cost:** ${costs['network']:,.0f}
+        **🌐 Network Cost:** ${rom_results['breakdown']['network_cost']:,.0f}
 
-        _{costs['partition_utilization']:.2f}% × ${st.session_state.flat_costs['network']:,.0f}_
+        _{rom_results['partition_utilization_pct']:.2f}% utilization × ${st.session_state.flat_costs['network']:,}_
     """)
 
     st.markdown(f"""
-        **🔒 Governance Cost:** ${costs['governance']:,.0f}
+        **🔒 Governance Cost:** ${rom_results['breakdown']['governance_cost']:,.0f}
 
-        _{storage_ratio:.4f} × ${st.session_state.flat_costs.get('governance', 42840):,.0f} × {num_topics} topics_
+        _{num_topics} topics × prorated governance rate_
     """)
 
     st.markdown(f"""
         ---
-        ### **Total Yearly Cost: ${costs['total_yearly']:,.0f}**
+        ### **Total Yearly Cost: ${rom_results['breakdown']['first_year_cloud_cost']:,.0f}**
     """)
 
 # ROM Cost Preview
 st.divider()
 st.markdown("## 📊 ROM Summary")
-
-# Calculate ROM costs to preview - use selected T-shirt size partitions
-from utils.rom_export import calculate_rom_costs
-
-# Create a preview config that uses the selected T-shirt size partitions
-preview_rom_config = st.session_state.rom_config.copy()
-preview_rom_config['feed_configs'] = [
-    {
-        'inbound': st.session_state.rom_config.get('inbound_feeds', 1),
-        'outbound': st.session_state.rom_config.get('outbound_feeds', 1),
-        'partitions': size_config['partitions']
-    }
-    for _ in range(st.session_state.rom_config.get('num_topics', num_ingests))
-]
-
-# Add CKU and flat cost configuration for accurate pricing
-preview_rom_config['azure_ckus'] = st.session_state.cku_config['azure_ckus']
-preview_rom_config['azure_rate'] = st.session_state.cku_config['azure_rate']
-preview_rom_config['gcp_ckus'] = st.session_state.cku_config['gcp_ckus']
-preview_rom_config['gcp_rate'] = st.session_state.cku_config['gcp_rate']
-preview_rom_config['total_partitions'] = TOTAL_PARTITIONS
-preview_rom_config['total_storage_gb'] = TOTAL_STORAGE_GB
-preview_rom_config['storage_annual'] = st.session_state.flat_costs.get('storage', 180000)
-preview_rom_config['network_annual'] = st.session_state.flat_costs.get('network', 120000)
-preview_rom_config['governance_annual'] = st.session_state.flat_costs.get('governance', 42840)
-
-rom_results = calculate_rom_costs(preview_rom_config)
 
 rom_col1, rom_col2, rom_col3 = st.columns(3)
 
