@@ -60,11 +60,11 @@ def calculate_rom_costs(config):
     network_annual = config.get('network_annual', 120000)
     governance_annual = config.get('governance_annual', 42840)
 
-    # Confluent cost: flat per-feed contract price ($976/month per topic)
+    # Confluent cost: flat per-topic contract price ($976/month per topic)
     confluent_monthly_per_feed = config.get('confluent_monthly_cost', 976)
     confluent_cost = confluent_monthly_per_feed * 12 * num_topics
 
-    # GCP cost: flat per-feed contract price ($773/month per topic)
+    # GCP cost: flat per-topic contract price ($773/month per topic)
     gcp_monthly_per_feed = config.get('gcp_per_feed_monthly_cost', 773)
     gcp_cost = gcp_monthly_per_feed * 12 * num_topics
 
@@ -203,7 +203,7 @@ def generate_rom_export(config):
 
     lines.append('')
     lines.append('Assumptions:')
-    lines.append(f"1,ROM covers {results['total_feeds']} EEB ingest feed(s) with inbound/outbound data processing capabilities")
+    lines.append(f"1,ROM covers {results['total_feeds']} EEB ingest feed(s) with {results['num_topics']} total topics ({results['display_inbound_topics']} inbound + {results['display_outbound_topics']} outbound)")
     lines.append('2,Feed ingests data with complex processing requirements')
     lines.append('3,Includes event data with facility impacts and workflow approvals')
     lines.append('4,Feed includes data normalization and standardization requirements')
@@ -213,8 +213,8 @@ def generate_rom_export(config):
     confluent_monthly = config.get('confluent_monthly_cost', config.get('confluent_annual_cost', 976) / 12)
     gcp_monthly = config.get('gcp_per_feed_monthly_cost', config.get('gcp_per_feed_annual_cost', 773) / 12)
 
-    lines.append(f"6,Confluent platform required for real-time streaming: {format_in_thousands(confluent_monthly)} per feed per month ({format_in_thousands(confluent_monthly * 12)} per year)")
-    lines.append(f"7,GCP/GKE infrastructure cost: {format_in_thousands(gcp_monthly)} per feed per month ({format_in_thousands(gcp_monthly * 12)} per year) for compute and storage")
+    lines.append(f"6,Confluent platform required for real-time streaming: {format_in_thousands(confluent_monthly)} per topic per month × {results['num_topics']} topics = {format_in_thousands(confluent_monthly * results['num_topics'])} /month ({format_in_thousands(confluent_monthly * 12 * results['num_topics'])} per year)")
+    lines.append(f"7,GCP/GKE infrastructure cost: {format_in_thousands(gcp_monthly)} per topic per month × {results['num_topics']} topics = {format_in_thousands(gcp_monthly * results['num_topics'])} /month ({format_in_thousands(gcp_monthly * 12 * results['num_topics'])} per year) for compute and storage")
     lines.append('8,ROM based on current understanding of high level requirements & known attributes')
     lines.append('9,As requirements are refined/finalized the ROM may need to be revised')
 
@@ -514,7 +514,7 @@ def generate_rom_export_excel_de_tslc(config):
     row += 1
 
     assumptions = [
-        f"1. ROM covers {results['total_feeds']} EEB ingest feed(s) with inbound/outbound data processing capabilities",
+        f"1. ROM covers {results['total_feeds']} EEB ingest feed(s) with {results['num_topics']} total topics ({results['display_inbound_topics']} inbound + {results['display_outbound_topics']} outbound)",
         f"2. Total {results['total_inbound_feeds']} inbound topics and {results['total_outbound_feeds']} outbound topics",
         "3. Feed ingests data with complex processing requirements",
         "4. Includes event data with facility impacts and workflow approvals",
@@ -636,7 +636,7 @@ def generate_rom_export_excel_de_only(config):
     row += 1
 
     assumptions = [
-        f"ROM covers {results['total_feeds']} EEB ingest feed(s) with inbound/outbound data processing capabilities",
+        f"ROM covers {results['total_feeds']} EEB ingest feed(s) with {results['num_topics']} total topics ({results['display_inbound_topics']} inbound + {results['display_outbound_topics']} outbound)",
         f"Total {results['total_inbound_feeds']} inbound topics and {results['total_outbound_feeds']} outbound topics",
         "Feed ingests data with complex processing requirements",
         "Includes event data with facility impacts and workflow approvals",
@@ -736,6 +736,7 @@ def generate_rom_export_excel_cloud_only(config):
     confluent_monthly = results['breakdown']['confluent_cost'] / 12
     gcp_monthly = results['breakdown']['gcp_cost'] / 12
     network_monthly = results['breakdown']['network_cost'] / 12
+    governance_monthly = results['breakdown']['governance_cost'] / 12
 
     # Confluent Cost
     ws.cell(row, 1, 'Confluent Cost').border = thin_border
@@ -758,6 +759,14 @@ def generate_rom_export_excel_cloud_only(config):
     ws.cell(row, 2, network_monthly).number_format = '$#,##0'
     ws.cell(row, 2).border = thin_border
     ws.cell(row, 3, results['breakdown']['network_cost']).number_format = '$#,##0'
+    ws.cell(row, 3).border = thin_border
+    row += 1
+
+    # Governance Cost
+    ws.cell(row, 1, 'Governance Cost').border = thin_border
+    ws.cell(row, 2, governance_monthly).number_format = '$#,##0'
+    ws.cell(row, 2).border = thin_border
+    ws.cell(row, 3, results['breakdown']['governance_cost']).number_format = '$#,##0'
     ws.cell(row, 3).border = thin_border
     row += 1
 
@@ -828,11 +837,11 @@ def generate_rom_export_excel_cloud_only(config):
     TOTAL_PARTITIONS = config.get('total_partitions', 12034)
 
     assumptions = [
-        f"ROM covers {results['total_feeds']} EEB ingest feed(s)",
+        f"ROM covers {results['total_feeds']} EEB ingest feed(s) with {results['num_topics']} total topics ({results['display_inbound_topics']} inbound + {results['display_outbound_topics']} outbound)",
         f"Network utilization: {results['partition_utilization_pct']:.2f}% ({results['total_partitions']:.0f} partitions out of {TOTAL_PARTITIONS:,.0f} total)",
         f"Daily volume: {results['records_per_day']:,} records per day",
-        f"Confluent platform required for real-time streaming: {format_in_thousands(confluent_monthly)} base cost per feed per month ({format_in_thousands(confluent_monthly * 12)} per year)",
-        f"GCP/GKE infrastructure cost: {format_in_thousands(gcp_monthly)} base cost per feed per month ({format_in_thousands(gcp_monthly * 12)} per year)",
+        f"Confluent platform required for real-time streaming: {format_in_thousands(confluent_monthly)} per topic per month × {results['num_topics']} topics = {format_in_thousands(confluent_monthly * results['num_topics'])} /month ({format_in_thousands(confluent_monthly * 12 * results['num_topics'])} per year)",
+        f"GCP/GKE infrastructure cost: {format_in_thousands(gcp_monthly)} per topic per month × {results['num_topics']} topics = {format_in_thousands(gcp_monthly * results['num_topics'])} /month ({format_in_thousands(gcp_monthly * 12 * results['num_topics'])} per year)",
         f"Network costs: {format_in_thousands(120000)} baseline, scaled by partition utilization",
         f"Escalation rate: {config['escalation_rate'] * 100:.1f}% annually for years 2-7",
         "Costs scale with partition usage and data volume",
@@ -957,6 +966,8 @@ def generate_rom_export_excel(config, logo_path=None):
     ws.cell(row, 1, f"  GCP Cost: ${results['breakdown']['gcp_cost']:,.0f}").font = normal_font
     row += 1
     ws.cell(row, 1, f"  Network Cost: ${results['breakdown']['network_cost']:,.0f}").font = normal_font
+    row += 1
+    ws.cell(row, 1, f"  Governance Cost: ${results['breakdown']['governance_cost']:,.0f}").font = normal_font
     row += 1
     ws[f'A{row}'] = f"  First Year Total: ${results['breakdown']['first_year_cloud_cost']:,.0f}"
     ws[f'A{row}'].font = bold_font
@@ -1105,13 +1116,13 @@ def generate_rom_export_excel(config, logo_path=None):
     gcp_monthly = config.get('gcp_per_feed_monthly_cost', config.get('gcp_per_feed_annual_cost', 773) / 12)
 
     assumptions = [
-        f"ROM covers {results['total_feeds']} EEB ingest feed(s) with inbound/outbound data processing capabilities",
+        f"ROM covers {results['total_feeds']} EEB ingest feed(s) with {results['num_topics']} total topics ({results['display_inbound_topics']} inbound + {results['display_outbound_topics']} outbound)",
         "Feed ingests data with complex processing requirements",
         "Includes event data with facility impacts and workflow approvals",
         "Feed includes data normalization and standardization requirements",
         "Workspace/Environment setup costs included",
-        f"Confluent platform required for real-time streaming: {format_in_thousands(confluent_monthly)} per feed per month ({format_in_thousands(confluent_monthly * 12)} per year)",
-        f"GCP/GKE infrastructure cost: {format_in_thousands(gcp_monthly)} per feed per month ({format_in_thousands(gcp_monthly * 12)} per year) for compute and storage",
+        f"Confluent platform required for real-time streaming: {format_in_thousands(confluent_monthly)} per ingest per month × {results['total_feeds']} ingests = {format_in_thousands(confluent_monthly * results['total_feeds'])} /month ({format_in_thousands(confluent_monthly * 12 * results['total_feeds'])} per year)",
+        f"GCP/GKE infrastructure cost: {format_in_thousands(gcp_monthly)} per ingest per month × {results['total_feeds']} ingests = {format_in_thousands(gcp_monthly * results['total_feeds'])} /month ({format_in_thousands(gcp_monthly * 12 * results['total_feeds'])} per year) for compute and storage",
         "ROM based on current understanding of high level requirements & known attributes",
         "As requirements are refined/finalized the ROM may need to be revised"
     ]
